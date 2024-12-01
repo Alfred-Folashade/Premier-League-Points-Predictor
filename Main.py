@@ -4,11 +4,16 @@ import numpy as np
 
 file_path = "stats.xlsx"
 data = pd.read_excel(file_path)
+
 Teams = data['Team']
 Home_Attack = data['Average Goals(Home)']
 Home_Defense = data['Average Goals Conceded (Home)']
 Away_Attack = data['Average Goals(Away)']
 Away_Defense = data['Average Goals Conceded (Away)']
+Home_Attack_Strength = data['Home Attack Strength']
+Away_Attack_Stength = data['Away Attack Strength']
+Home_Defense_Strength = data['Home Defense Strength']
+Away_Defense_Strength = data['Away Defense Strength']
 TotalPoints = data['Points']
 
 team_points = {team: points for team, points in zip(Teams, TotalPoints)}
@@ -16,24 +21,19 @@ team_points = {team: points for team, points in zip(Teams, TotalPoints)}
 def simulate_match(home_team, away_team):
     homeIndex = Teams[Teams == home_team].index[0]
     awayIndex = Teams[Teams == away_team].index[0]
-
+    
     home_attack = Home_Attack[homeIndex]
     home_defense = Home_Defense[homeIndex]
     away_attack = Away_Attack[awayIndex]
     away_defense = Away_Defense[awayIndex]
 
-    # Home advantage factor
-    home_advantage = 1.1  # Home team is generally stronger, you can fine-tune this value
-    away_advantage = 0.9  # Away teams generally perform worse, adjust as needed
+    home_attack_strength = Home_Attack_Strength[homeIndex]  # Avoid shadowing the global variable
+    home_defense_strength = Home_Defense_Strength[homeIndex]
+    away_attack_strength = Away_Attack_Stength[awayIndex]
+    away_defense_strength = Away_Defense_Strength[awayIndex]
 
-    home_expected_goals = home_attack * away_defense * home_advantage
-    away_expected_goals = away_attack * home_defense * away_advantage
-
-    random_factor_home = np.random.normal(1, 0.1)  # Randomness for the home team (mean = 1, std = 0.1)
-    random_factor_away = np.random.normal(1, 0.1)  # Randomness for the away team (mean = 1, std = 0.1)
-
-    home_expected_goals *= random_factor_home
-    away_expected_goals *= random_factor_away
+    home_expected_goals = home_attack_strength * away_defense_strength * home_attack * away_defense
+    away_expected_goals = away_attack_strength * home_defense_strength * away_attack * home_defense
     
     home_goals = np.random.poisson(home_expected_goals)
     away_goals = np.random.poisson(away_expected_goals)
@@ -328,27 +328,29 @@ fixtures = [
 def run_single_simulation():
     # Copy the initial points for each team
     simulated_points = team_points.copy()
+    games_simulated = 0
 
     # Simulate all remaining matches and update the points
     for home_team, away_team in fixtures:
         home_goals, away_goals, home_points, away_points = simulate_match(home_team, away_team)
-        
+
         if home_goals is not None and away_goals is not None:
             # Update the points for both teams
             simulated_points[home_team] += home_points
             simulated_points[away_team] += away_points
-    
+            games_simulated += 1
+
     return simulated_points
 
 # Function to run Monte Carlo simulations
-def monte_carlo_simulation(num_simulations=100):
+def monte_carlo_simulation(num_simulations=1000):
     simulation_results = []
 
     # Run the simulations
     for _ in range(num_simulations):
         simulated_points = run_single_simulation()
         simulation_results.append(simulated_points)
-    
+
     # Convert the results into a DataFrame
     final_points = pd.DataFrame(simulation_results)
 
@@ -361,11 +363,16 @@ def monte_carlo_simulation(num_simulations=100):
     return sorted_teams
 
 # Run the Monte Carlo simulation for 1000 simulations
-final_predictions = monte_carlo_simulation(num_simulations=100)
+final_predictions = monte_carlo_simulation(num_simulations=1000)
+
+total_games_in_season = 38
+games_already_played = 11
+games_remaining = total_games_in_season - games_already_played
 
 # Print the final predicted standings (average points)
 print("Final Standings Prediction (Monte Carlo):")
 for rank, (team, points) in enumerate(final_predictions.items(), start=1):
-    print(f"{rank}. {team} - {points:.2f} points")
+    currentPoints = team_points.get(team, 0)
+    print(f"{rank}. {team} - {total_games_in_season} Games - {points + currentPoints:.2f} Points")
 
 
